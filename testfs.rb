@@ -9,10 +9,8 @@ rescue LoadError
   exit
 end
 
-require 'rubygems'
 require 'rbfuse'
 require 'json'
-require 'pp'
 
 class TestFS < RbFuse::FuseDir
   def initialize
@@ -156,9 +154,8 @@ class TestFS < RbFuse::FuseDir
   end
 end
 
-mntdir = ARGV.shift
-RbFuse.debug=true
+RbFuse.debug = true
 RbFuse.set_root(TestFS.new)
-RbFuse.mount_under mntdir
+RbFuse.mount_under(ARGV.shift)
 RbFuse.run
 RbFuse.unmount
