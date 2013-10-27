@@ -124,16 +124,11 @@ class TestFS < RbFuse::FuseDir
   end
 
   def mkdir(path, mode)
-    @table[to_dirkey(path)] = JSON.dump([])
-    filename = File.basename(path)
-    parent_dir = File.dirname(path)
-
-    if get_dir(filename).nil?
-      files = [filename]
-    else
-      files = JSON.load(get_dir(filename))
-    end
-    @table[to_dirkey(File.dirname(path))] = JSON.dump(files)
+    @table[to_dirkey(path)]=JSON.dump([])
+    filename=File.basename(path)
+    parent_dir=File.dirname(path)
+    files=JSON.load(get_dir(parent_dir))|[filename]
+    @table[to_dirkey(File.dirname(path))]=JSON.dump(files)
     true
   end
 
