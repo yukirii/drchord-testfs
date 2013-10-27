@@ -17,11 +17,9 @@ class TestFS < RbFuse::FuseDir
     @table[to_dirkey(path)] = JSON.dump(ary)
   end
 
-  #ここおかしい
   def dir_entries(path)
     val = @table[to_dirkey(path)]
     val ? JSON.load(val) : nil
-    #@table[to_dirkey(path)] ? JSON.load(val) : nil
   end
 
   def to_dirkey(path)
@@ -71,6 +69,14 @@ class TestFS < RbFuse::FuseDir
   end
 
   public
+  def stat(path)
+    getattr(path)
+  end
+
+  def delete(path)
+    delete_file(path)
+  end
+
   def readdir(path)
     ents = JSON.load(get_dir(path))
     ents||[]
@@ -137,5 +143,40 @@ class TestFS < RbFuse::FuseDir
    basename = File.basename(path)
    set_dir(dirname,JSON.load(get_dir(dirname)) - [basename])
    @table.delete(to_dirkey(path))
+  end
+
+  def rename(path, destpath)
+    if directory?(path)
+      @table[to_dirkey(destpath)] = @table[to_dirkey(path)]
+      filename = File.basename(destpath)
+      parent_dir = File.dirname(destpath)
+      files = JSON.load(get_dir(parent_dir)) | [filename]
+      @table[to_dirkey(File.dirname(destpath))] = JSON.dump(files)
+
+      tmp = {}
+      @table.each do |key, value|
+        if key =~ /^file:.*/
+          path_only = key[5..key.length]
+          new_key = "file:"
+        elsif key =~ /^dir:.*/
+          path_only = key[4..key.length]
+          new_key = "dir:"
+        end
+
+        if path_only[0..path.length-1] == path
+          rest = path_only[path.length..path_only.length]
+          new_key += destpath + rest
+
+          tmp.store(new_key, value)
+          @table.reject!{|k, v| k == key }
+        end
+      end
+      @table.merge!(tmp)
+
+      rmdir(path)
+      return true
+    else
+      super(path, destpath)
+    end
   end
 end
