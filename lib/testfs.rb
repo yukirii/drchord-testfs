@@ -7,9 +7,7 @@ class TestFS < RbFuse::FuseDir
   def initialize
     @table = {}
     ent = dir_entries('/')
-    if !ent
-      set_dir('/', [])
-    end
+    set_dir('/', []) if !ent
     @open_entries = {}
   end
 
@@ -44,11 +42,7 @@ class TestFS < RbFuse::FuseDir
 
   def size(path)
     file = get_file(path)
-    if file
-      return file.bytesize
-    else
-      return 0
-    end
+    return file ? file.bytesize : 0
   end
 
   def directory?(path)
@@ -59,9 +53,8 @@ class TestFS < RbFuse::FuseDir
     @table[to_filekey(path)] = str
   end
 
-
   def delete_file(path)
-    if(get_file(path))
+    if get_file(path)
       @table.delete(to_filekey(path))
       dirname = File.dirname(path)
       set_dir(dirname, dir_entries(dirname) - [File.basename(path)])
@@ -83,7 +76,7 @@ class TestFS < RbFuse::FuseDir
   end
 
   def getattr(path)
-    if(file?(path))
+    if file?(path)
       stat = RbFuse::Stat.file
       stat.size = size(path)
       return stat
@@ -96,9 +89,7 @@ class TestFS < RbFuse::FuseDir
 
   def open(path, mode, handle)
     buf = nil
-    if mode=~/r/
-      buf = get_file(path)
-    end
+    buf = get_file(path) if mode=~/r/
     buf||=""
     buf.encode("ASCII-8bit")
 
