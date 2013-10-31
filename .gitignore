@@ -1,0 +1,10 @@
+/.bundle
+/mnt
+/tmp
+/doc
+.yardoc
+
+Gemfile.lock
+config.yml
+.DS_store
+.*.swp
