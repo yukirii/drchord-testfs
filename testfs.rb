@@ -15,13 +15,15 @@ require 'json'
 
 if ARGV.count <= 0
   puts "Error: Mount point not specified."
-  puts "Usage: ruby testfs.rb mnt"
+  puts "Usage: ruby testfs.rb -d mnt"
   exit
 end
 
 STDOUT.sync = true
-STDERR.sync = true
-RbFuse.debug = true
+if ARGV.count >= 2 && ARGV.shift == "-d"
+  RbFuse.debug = true
+  STDERR.sync = true
+end
 RbFuse.set_root(TestFS.new)
 RbFuse.mount_under(ARGV.shift)
 begin
