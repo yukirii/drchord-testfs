@@ -10,6 +10,10 @@ When /^: 以下の内容のファイルを作成する$/ do |table|
   write_file(file[:filename], file[:content])
 end
 
+When /^: "(.*?)" に "(.*?)" を追記する$/ do |arg1, arg2|
+  append_to_file(arg1, arg2)
+end
+
 Then /^: ディレクトリに "(.*?)" が存在する$/ do |arg1|
   check_file_presence([arg1], true)
 end

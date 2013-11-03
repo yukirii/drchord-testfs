@@ -15,3 +15,10 @@
 
   シナリオ: ファイルに追記する
     前提: マウントポイントに移動する
+    前提: 以下の内容のファイルを作成する
+      | filename | content  |
+      | hoge.txt | hogehoge |
+    前提: ディレクトリに "hoge.txt" が存在する
+    もし: "hoge.txt" に "hugahuga" を追記する
+    ならば: "hoge.txt" の内容に "hogehoge" が含まれている
+    かつ: "hoge.txt" の内容に "hogehogehugahuga" が含まれている
