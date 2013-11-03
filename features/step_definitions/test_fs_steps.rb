@@ -45,6 +45,10 @@ When /^: ディレクトリ "(.*?)" を作成する$/ do |arg1|
   create_dir(arg1)
 end
 
+When /^: "(.*?)" ディレクトリを "(.*?)" に(移動|リネーム)する$/ do |arg1, arg2, arg3|
+  run("mv #{arg1} #{arg2}")
+end
+
 Then /^: ディレクトリに "(.*?)" (ファイル|ディレクトリ)が存在(する|しない)$/ do |arg1, arg2, arg3|
   if arg2 == "ファイル"
     check_file_presence([arg1], arg3 == "する")
@@ -68,3 +72,5 @@ Then /^: (\d+) 個のテストデータが存在する$/ do |arg1|
     check_file_content("#{i}.txt", "#{i.to_s*10}", true)
   end
 end
+
+
