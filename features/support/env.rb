@@ -1,7 +1,6 @@
 # encoding: utf-8
 require 'aruba/cucumber'
 require 'chukan'
-include Chukan
 
 Before do
   @features_root = File.expand_path('../../../', __FILE__)
@@ -9,15 +8,16 @@ Before do
 end
 
 class FSManager
-  def initialize
-  end
+  include Chukan
 
   def run
-    p "run"
+    @fs = spawn("ruby testfs.rb mnt")
+    @fs.stdout_join("TestFS Start")
   end
 
   def stop
-    p "stop"
+    @fs.kill
+    `umount mnt`
   end
 end
 

@@ -19,10 +19,12 @@ if ARGV.count <= 0
   exit
 end
 
+STDOUT.sync = true
 RbFuse.debug = true
 RbFuse.set_root(TestFS.new)
 RbFuse.mount_under(ARGV.shift)
 begin
+  puts "TestFS Start"
   RbFuse.run
 rescue Interrupt
   RbFuse.unmount
