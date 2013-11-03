@@ -33,7 +33,7 @@ When /^: "(.*?)" ディレクトリを "(.*?)" にコピーする$/ do |arg1, ar
   run("cp -r #{arg1} #{arg2}")
 end
 
-When /^: "(.*?)" の名前をを "(.*?)" に変更する$/ do |arg1, arg2|
+When /^: "(.*?)" の名前を "(.*?)" に変更する$/ do |arg1, arg2|
   run("mv #{arg1} #{arg2}")
 end
 
@@ -47,6 +47,10 @@ end
 
 When /^: "(.*?)" ディレクトリを "(.*?)" に(移動|リネーム)する$/ do |arg1, arg2, arg3|
   run("mv #{arg1} #{arg2}")
+end
+
+When /^: "(.*?)" ディレクトリを削除する$/ do |arg1|
+  remove_dir(arg1)
 end
 
 Then /^: ディレクトリに "(.*?)" (ファイル|ディレクトリ)が存在(する|しない)$/ do |arg1, arg2, arg3|
