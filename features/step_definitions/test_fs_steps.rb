@@ -5,9 +5,9 @@ Given /^: マウントポイントに移動する$/ do
   current_dir.should == @features_root + "/mnt"
 end
 
-When /^: コマンド "(.*?)" を実行する$/ do |arg1|
-  #run(arg1)
-  write_file("hoge.txt", "hogehoge")
+When /^: 以下の内容のファイルを作成する$/ do |table|
+  file = table.hashes[0]
+  write_file(file[:filename], file[:content])
 end
 
 Then /^: ディレクトリに "(.*?)" が存在する$/ do |arg1|

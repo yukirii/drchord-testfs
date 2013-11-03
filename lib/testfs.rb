@@ -102,7 +102,6 @@ class TestFS < RbFuse::FuseDir
   end
 
   def write(path, off, buf, handle)
-    `say kass`
     @open_entries[handle][1][off,buf.bytesize] = buf
   end
 
