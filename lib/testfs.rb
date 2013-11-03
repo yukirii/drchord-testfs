@@ -2,6 +2,7 @@
 
 require 'rbfuse'
 require 'json'
+require 'kconv'
 
 class TestFS < RbFuse::FuseDir
   def initialize
@@ -122,7 +123,7 @@ class TestFS < RbFuse::FuseDir
 
   def mkdir(path, mode)
     @table[to_dirkey(path)]=JSON.dump([])
-    filename=File.basename(path)
+    filename=File.basename(path.toutf8)
     parent_dir=File.dirname(path)
     files=JSON.load(get_dir(parent_dir))|[filename]
     @table[to_dirkey(File.dirname(path))]=JSON.dump(files)
@@ -130,16 +131,16 @@ class TestFS < RbFuse::FuseDir
   end
 
   def rmdir(path)
-   dirname = File.dirname(path)
+   dirname = File.dirname(path.toutf8)
    basename = File.basename(path)
-   set_dir(dirname,JSON.load(get_dir(dirname)) - [basename])
+   set_dir(dirname,JSON.load(get_dir(dirname)) - [basename.toutf8])
    @table.delete(to_dirkey(path))
   end
 
   def rename(path, destpath)
     if directory?(path)
       @table[to_dirkey(destpath)] = @table[to_dirkey(path)]
-      filename = File.basename(destpath)
+      filename = File.basename(destpath.toutf8)
       parent_dir = File.dirname(destpath)
       files = JSON.load(get_dir(parent_dir)) | [filename]
       @table[to_dirkey(File.dirname(destpath))] = JSON.dump(files)
