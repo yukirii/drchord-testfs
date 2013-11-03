@@ -20,6 +20,7 @@ if ARGV.count <= 0
 end
 
 STDOUT.sync = true
+STDERR.sync = true
 RbFuse.debug = true
 RbFuse.set_root(TestFS.new)
 RbFuse.mount_under(ARGV.shift)
