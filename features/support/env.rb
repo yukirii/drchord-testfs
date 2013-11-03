@@ -11,6 +11,7 @@ class FSManager
   include Chukan
 
   def run
+    `mkdir mnt` unless File.exists?("mnt")
     @fs = spawn("ruby testfs.rb mnt")
     @fs.stdout_join("TestFS Start")
   end
