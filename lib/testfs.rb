@@ -11,30 +11,52 @@ require 'kconv'
 require 'pp'
 
 class TestFS < RbFuse::FuseDir
-  attr_reader :hash_method
+  attr_reader :hash_method, :table
   def initialize
     @hash_method = lambda {|key| Zlib.crc32(key) }
-
     @table = {}
-    entries = dir_entries('/')
-    if entries.nil?
-      set_dir('/', DirEntry.new)
-    end
     @open_entries = {}
+    create_root_dir
   end
 
-  def set_dir(path, dir_entry)
-    if path == '/'
-      inode = Inode.new("2", :dir)
-    else
-      inode = Inode.new(UUIDTools::UUID.timestamp_create.hexdigest, :dir)
-    end
+  def create_root_dir
+    inode = Inode.new(:dir, "2")
+    dir_entry = DirEntry.new
     inode.pointer = dir_entry.uuid
-
-    # store inode
     @table.store(hash_method.call(inode.ino), inode)
-    # store directory entry
-    @table.store(hash_method.call(dir_entry.uuid), JSON.dump(dir_entry))
+    @table.store(hash_method.call(dir_entry.uuid), dir_entry)
+  end
+
+  def set_dir(path, dest_dir)
+      root_inode = @table[hash_method.call("2")]
+      current_dir = @table[hash_method.call(root_inode.pointer)]
+
+      splited_path = path.split("/").reject{|x| x == "" }
+      dest_dir_name = splited_path.pop
+
+      splited_path.each do |dir|
+        unless current_dir.has_key?(dir)
+          return false
+        end
+        current_inode = @table[hash_method.call(current_dir[dir])]
+        current_dir = @table[hash_method.call(next_inode.pointer)]
+      end
+
+      if current_dir.has_key?(dest_dir_name)
+        same_name_uuid = current_dir[dest_dir_name]
+        same_name_inode = @table[hash_method.call(same_name_uuid)]
+        return false if same_name_inode.type == :dir
+      end
+
+      dest_inode = Inode.new(:dir)
+      dest_inode.pointer = dest_dir.uuid
+      @table.store(hash_method.call(dest_inode.ino), dest_inode)
+      @table.store(hash_method.call(dest_dir.uuid), dest_dir)
+
+      current_dir.store(dest_dir_name, dest_inode.ino)
+      @table.store(hash_method.call(current_dir.uuid), current_dir)
+
+      return true
   end
 
   def dir_entries(path)
@@ -45,11 +67,16 @@ class TestFS < RbFuse::FuseDir
   def to_dirkey(path)
     if path == '/'
       key = "2"
+      dir_inode = @table[@hash_method.call(key)]
+      if dir_inode.nil?
+        return nil
+      else
+        return @table[@hash_method.call(dir_inode.pointer)]
+      end
     else
-    end
 
+    end
     #return 'dir:' + path
-    return Zlib.crc32(key)
   end
 
   def to_filekey(path)
@@ -149,12 +176,16 @@ class TestFS < RbFuse::FuseDir
   end
 
   def mkdir(path, mode)
+    set_dir(path, DirEntry.new)
+=begin
     @table[to_dirkey(path)]=JSON.dump([])
-    filename=File.basename(path.toutf8)
-    parent_dir=File.dirname(path)
-    files=JSON.load(get_dir(parent_dir))|[filename]
-    @table[to_dirkey(File.dirname(path))]=JSON.dump(files)
-    true
+    filename = File.basename(path.toutf8)
+    parent_dir = File.dirname(path)
+    files = JSON.load(get_dir(parent_dir))|[filename]
+    @table[to_dirkey(File.dirname(path))] = JSON.dump(files)
+=end
+    pp @table
+    return true
   end
 
   def rmdir(path)
