@@ -2,6 +2,7 @@
 
 testfs_dir = File.expand_path(File.dirname(__FILE__))
 require File.expand_path(File.join(testfs_dir, '/inode.rb'))
+require File.expand_path(File.join(testfs_dir, '/dir_entry.rb'))
 require 'uuidtools'
 require 'rbfuse'
 require 'zlib'
@@ -16,26 +17,24 @@ class TestFS < RbFuse::FuseDir
 
     @table = {}
     entries = dir_entries('/')
-    set_dir('/', []) if !entries
+    if entries.nil?
+      set_dir('/', DirEntry.new)
+    end
     @open_entries = {}
   end
 
-  def set_dir(path, ary)
+  def set_dir(path, dir_entry)
     if path == '/'
       inode = Inode.new("2", :dir)
     else
       inode = Inode.new(UUIDTools::UUID.timestamp_create.hexdigest, :dir)
     end
-
-    dir_entry_uuid = UUIDTools::UUID.timestamp_create.hexdigest
-    inode.pointer = dir_entry_uuid
+    inode.pointer = dir_entry.uuid
 
     # store inode
     @table.store(hash_method.call(inode.ino), inode)
     # store directory entry
-    @table.store(hash_method.call(dir_entry_uuid), JSON.dump(ary))
-
-    pp @table
+    @table.store(hash_method.call(dir_entry.uuid), JSON.dump(dir_entry))
   end
 
   def dir_entries(path)
