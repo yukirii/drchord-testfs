@@ -234,11 +234,31 @@ class TestFS < RbFuse::FuseDir
   end
 
   def delete_file(path)
-    if get_file(path)
-      @table.delete(to_filekey(path))
-      dirname = File.dirname(path)
-      set_dir(dirname, dir_entries(dirname) - [File.basename(path)])
+    filename = File.basename(path)
+    path = File.dirname(path)
+
+    root_inode = @table[hash_method.call("2")]
+    current_dir = @table[hash_method.call(root_inode.pointer)]
+
+    if path != '/'
+      splited_path = path.split("/").reject{|x| x == "" }
+      splited_path.each do |dir|
+        return false unless current_dir.has_key?(dir)
+        current_inode = @table[hash_method.call(current_dir[dir])]
+        current_dir = @table[hash_method.call(current_inode.pointer)]
+      end
     end
+
+    if current_dir.has_key?(filename)
+      uuid = current_dir[filename]
+      inode = @table[hash_method.call(uuid)]
+
+      current_dir.delete(filename)
+      @table.delete(hash_method.call(uuid))
+      @table.delete(hash_method.call(inode.pointer))
+      return true
+    end
+    return false
   end
 
   public
@@ -289,12 +309,6 @@ class TestFS < RbFuse::FuseDir
     return nil unless @open_entries[handle]
     set_file(path, @open_entries[handle][1])
     @open_entries.delete(handle)
-
-=begin
-    dir = File.dirname(path)
-    files = JSON.load(get_dir(dir))
-    set_dir(dir, files | [File.basename(path)] )
-=end
   end
 
   def unlink(path)
