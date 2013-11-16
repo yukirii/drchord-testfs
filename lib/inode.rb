@@ -9,7 +9,7 @@ class Inode
   def initialize(type, ino=nil)
     @ino = ino || UUIDTools::UUID.timestamp_create.hexdigest;
     @type = type;
-    @size = size;
+    @size = 0;
     @ctime = DateTime.now;
     @mtime = DateTime.now;
     @atime = DateTime.now;

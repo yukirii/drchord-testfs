@@ -28,40 +28,58 @@ class TestFS < RbFuse::FuseDir
   end
 
   def set_dir(path, dest_dir)
-      root_inode = @table[hash_method.call("2")]
-      current_dir = @table[hash_method.call(root_inode.pointer)]
+    root_inode = @table[hash_method.call("2")]
+    current_dir = @table[hash_method.call(root_inode.pointer)]
 
-      splited_path = path.split("/").reject{|x| x == "" }
-      dest_dir_name = splited_path.pop
+    splited_path = path.split("/").reject{|x| x == "" }
+    dest_dir_name = splited_path.pop
 
-      splited_path.each do |dir|
-        unless current_dir.has_key?(dir)
-          return false
-        end
-        current_inode = @table[hash_method.call(current_dir[dir])]
-        current_dir = @table[hash_method.call(next_inode.pointer)]
+    splited_path.each do |dir|
+      unless current_dir.has_key?(dir)
+        return false
       end
+      current_inode = @table[hash_method.call(current_dir[dir])]
+      current_dir = @table[hash_method.call(current_inode.pointer)]
+    end
 
-      if current_dir.has_key?(dest_dir_name)
-        same_name_uuid = current_dir[dest_dir_name]
-        same_name_inode = @table[hash_method.call(same_name_uuid)]
-        return false if same_name_inode.type == :dir
-      end
+    if current_dir.has_key?(dest_dir_name)
+      same_name_uuid = current_dir[dest_dir_name]
+      same_name_inode = @table[hash_method.call(same_name_uuid)]
+      return false if same_name_inode.type == :dir
+    end
 
-      dest_inode = Inode.new(:dir)
-      dest_inode.pointer = dest_dir.uuid
-      @table.store(hash_method.call(dest_inode.ino), dest_inode)
-      @table.store(hash_method.call(dest_dir.uuid), dest_dir)
+    dest_inode = Inode.new(:dir)
+    dest_inode.pointer = dest_dir.uuid
+    @table.store(hash_method.call(dest_inode.ino), dest_inode)
+    @table.store(hash_method.call(dest_dir.uuid), dest_dir)
 
-      current_dir.store(dest_dir_name, dest_inode.ino)
-      @table.store(hash_method.call(current_dir.uuid), current_dir)
+    current_dir.store(dest_dir_name, dest_inode.ino)
+    @table.store(hash_method.call(current_dir.uuid), current_dir)
 
-      return true
+    return true
   end
 
   def dir_entries(path)
-    val = @table[to_dirkey(path)]
-    val ? JSON.load(val) : nil
+    root_inode = @table[hash_method.call("2")]
+    current_dir = @table[hash_method.call(root_inode.pointer)]
+
+    target_dir_name = splited_path.pop
+    splited_path = path.split("/").reject{|x| x == "" }
+    splited_path.each do |dir|
+      unless current_dir.has_key?(dir)
+        return nil
+      end
+      current_inode = @table[hash_method.call(current_dir[dir])]
+      current_dir = @table[hash_method.call(current_inode.pointer)]
+    end
+
+    if current_dir.has_key?(target_dir_name)
+      uuid = current_dir[dest_dir_name]
+      inode = @table[hash_method.call(uuid)]
+      return @table[hash_method.call(inode.pointer)] if inode.type == :dir
+    end
+
+    return nil
   end
 
   def to_dirkey(path)
@@ -91,17 +109,69 @@ class TestFS < RbFuse::FuseDir
     @table[to_filekey(path)]
   end
 
-  def file?(path)
-    !!get_file(path)
+  def size(path)
+    root_inode = @table[hash_method.call("2")]
+    current_dir = @table[hash_method.call(root_inode.pointer)]
+
+    target_dir_name = splited_path.pop
+    splited_path = path.split("/").reject{|x| x == "" }
+    splited_path.each do |dir|
+      return 0 unless current_dir.has_key?(dir)
+      current_inode = @table[hash_method.call(current_dir[dir])]
+      current_dir = @table[hash_method.call(current_inode.pointer)]
+    end
+
+    if current_dir.has_key?(target_dir_name)
+      uuid = current_dir[dest_dir_name]
+      inode = @table[hash_method.call(uuid)]
+      return inode.size
+    end
+
+    return 0
   end
 
-  def size(path)
-    file = get_file(path)
-    return file ? file.bytesize : 0
+  def file?(path)
+    root_inode = @table[hash_method.call("2")]
+    current_dir = @table[hash_method.call(root_inode.pointer)]
+
+    splited_path = path.split("/").reject{|x| x == "" }
+    target_dir_name = splited_path.pop
+
+    splited_path.each do |dir|
+      return failse unless current_dir.has_key?(dir)
+      current_inode = @table[hash_method.call(current_dir[dir])]
+      current_dir = @table[hash_method.call(current_inode.pointer)]
+    end
+
+    if current_dir.has_key?(target_dir_name)
+      uuid = current_dir[target_dir_name]
+      inode = @table[hash_method.call(uuid)]
+      return true if inode.type == :file
+    end
+
+    return false
   end
 
   def directory?(path)
-    !!get_dir(path)
+    root_inode = @table[hash_method.call("2")]
+    current_dir = @table[hash_method.call(root_inode.pointer)]
+
+    splited_path = path.split("/").reject{|x| x == "" }
+    target_dir_name = splited_path.pop
+
+    splited_path.each do |dir|
+      return failse unless current_dir.has_key?(dir)
+      current_inode = @table[hash_method.call(current_dir[dir])]
+      current_dir = @table[hash_method.call(current_inode.pointer)]
+    end
+
+    if current_dir.has_key?(target_dir_name)
+      uuid = current_dir[target_dir_name]
+      inode = @table[hash_method.call(uuid)]
+      return true if inode.type == :dir
+    end
+
+    return false
   end
 
   def set_file(path, str)
