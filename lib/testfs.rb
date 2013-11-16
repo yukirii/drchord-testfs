@@ -1,19 +1,41 @@
 #encoding:utf-8
 
+testfs_dir = File.expand_path(File.dirname(__FILE__))
+require File.expand_path(File.join(testfs_dir, '/inode.rb'))
+require 'uuidtools'
 require 'rbfuse'
+require 'zlib'
 require 'json'
 require 'kconv'
+require 'pp'
 
 class TestFS < RbFuse::FuseDir
+  attr_reader :hash_method
   def initialize
+    @hash_method = lambda {|key| Zlib.crc32(key) }
+
     @table = {}
-    ent = dir_entries('/')
-    set_dir('/', []) if !ent
+    entries = dir_entries('/')
+    set_dir('/', []) if !entries
     @open_entries = {}
   end
 
   def set_dir(path, ary)
-    @table[to_dirkey(path)] = JSON.dump(ary)
+    if path == '/'
+      inode = Inode.new("2", :dir)
+    else
+      inode = Inode.new(UUIDTools::UUID.timestamp_create.hexdigest, :dir)
+    end
+
+    dir_entry_uuid = UUIDTools::UUID.timestamp_create.hexdigest
+    inode.pointer = dir_entry_uuid
+
+    # store inode
+    @table.store(hash_method.call(inode.ino), inode)
+    # store directory entry
+    @table.store(hash_method.call(dir_entry_uuid), JSON.dump(ary))
+
+    pp @table
   end
 
   def dir_entries(path)
@@ -22,7 +44,13 @@ class TestFS < RbFuse::FuseDir
   end
 
   def to_dirkey(path)
-    return 'dir:' + path
+    if path == '/'
+      key = "2"
+    else
+    end
+
+    #return 'dir:' + path
+    return Zlib.crc32(key)
   end
 
   def to_filekey(path)
