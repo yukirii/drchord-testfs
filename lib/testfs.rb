@@ -220,12 +220,20 @@ class TestFS < RbFuse::FuseDir
       end
     end
 
-    file_data = FileData.new(str)
-    inode = Inode.new(:file)
-    inode.pointer = file_data.uuid
+    if current_dir.has_key?(filename)
+      inode = @table[hash_method.call(current_dir[filename])]
+      file_data = @table[hash_method.call(inode.pointer)]
+    else
+      file_data = FileData.new
+      inode = Inode.new(:file)
+      inode.pointer = file_data.uuid
+    end
+
+    file_data.value = str
     inode.size = file_data.value.bytesize
-    @table.store(hash_method.call(inode.ino), inode);
-    @table.store(hash_method.call(file_data.uuid), file_data);
+
+    @table.store(hash_method.call(inode.ino), inode)
+    @table.store(hash_method.call(file_data.uuid), file_data)
 
     current_dir.store(filename, inode.ino)
     @table.store(hash_method.call(current_dir.uuid), current_dir)
@@ -256,6 +264,7 @@ class TestFS < RbFuse::FuseDir
       current_dir.delete(filename)
       @table.delete(hash_method.call(uuid))
       @table.delete(hash_method.call(inode.pointer))
+
       return true
     end
     return false
@@ -280,7 +289,7 @@ class TestFS < RbFuse::FuseDir
       stat = RbFuse::Stat.file
       stat.size = size(path)
       return stat
-    elsif(directory?(path))
+    elsif directory?(path)
       return RbFuse::Stat.dir
     else
       return nil
@@ -322,10 +331,42 @@ class TestFS < RbFuse::FuseDir
   end
 
   def rmdir(path)
-   dirname = File.dirname(path.toutf8)
-   basename = File.basename(path)
-   set_dir(dirname,JSON.load(get_dir(dirname)) - [basename.toutf8])
-   @table.delete(to_dirkey(path))
+    basename = File.basename(path)
+    dirname = File.dirname(path)
+
+    root_inode = @table[hash_method.call("2")]
+    current_dir = @table[hash_method.call(root_inode.pointer)]
+
+    if dirname != '/'
+      splited_path = path.split("/").reject{|x| x == "" }
+      splited_path.each do |dir|
+        unless current_dir.has_key?(dir)
+          return nil
+        end
+        current_inode = @table[hash_method.call(current_dir[dir])]
+        current_dir = @table[hash_method.call(current_inode.pointer)]
+      end
+    end
+
+    parent_dir = current_dir
+    del_dir_inode = @table[hash_method.call(parent_dir[basename])]
+    remove_lower_dir(del_dir_inode)
+
+    parent_dir.delete(basename)
+    @table.store(hash_method.call(parent_dir.uuid), parent_dir)
+  end
+
+  def remove_lower_dir(del_dir_inode)
+    dir_entry.each do |entry, uuid|
+      inode = @table[hash_method.call(uuid)]
+      data = @table[hash_method.call(inode.pointer)]
+      remove_lower_dir(inode) if inode.type == :dir
+
+      @table.delete(hash_method.call(uuid))
+      @table.delete(hash_method.call(inode.pointer))
+    end
+    @table.delete(hash_method.call(del_dir_inode.ino))
+    @table.delete(hash_method.call(dir_entry.uuid))
   end
 
   def rename(path, destpath)
