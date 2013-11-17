@@ -77,31 +77,6 @@ class TestFS < RbFuse::FuseDir
     return current_dir.keys
   end
 
-=begin
-  def to_dirkey(path)
-    if path == '/'
-      key = "2"
-      dir_inode = @table[@hash_method.call(key)]
-      if dir_inode.nil?
-        return nil
-      else
-        return @table[@hash_method.call(dir_inode.pointer)]
-      end
-    else
-
-    end
-    #return 'dir:' + path
-  end
-
-  def to_filekey(path)
-    return "file:"+path
-  end
-
-  def get_dir(path)
-    @table[to_dirkey(path)]
-  end
-=end
-
   def get_file(path)
     filename = File.basename(path)
     path = File.dirname(path)
@@ -369,29 +344,36 @@ class TestFS < RbFuse::FuseDir
   end
 
   def rename(path, destpath)
-    basename = File.basename(path)
-    dirname = File.dirname(path)
+    # get uuid & inode
+    parent_entry = get_dir_entry(path)
+    target_uuid = parent_entry[File.basename(path)]
 
+    # Delete from the parent directory
+    parent_entry.delete(File.basename(path))
+    @table.store(hash_method.call(parent_entry.uuid), parent_entry)
+
+    # Save to a new directory
+    newparent_entry = get_dir_entry(destpath)
+    newparent_entry.store(File.basename(destpath), target_uuid)
+    @table.store(hash_method.call(newparent_entry.uuid), newparent_entry)
+
+    return true
+  end
+
+  def get_dir_entry(path)
+    dirname = File.dirname(path)
     root_inode = @table[hash_method.call("2")]
     current_dir = @table[hash_method.call(root_inode.pointer)]
 
     if dirname != '/'
-      splited_path = path.split("/").reject{|x| x == "" }
+      splited_path = dirname.split("/").reject{|x| x == "" }
       splited_path.each do |dir|
-        unless current_dir.has_key?(dir)
-          return true
-        end
+        return nil unless current_dir.has_key?(dir)
         current_inode = @table[hash_method.call(current_dir[dir])]
         current_dir = @table[hash_method.call(current_inode.pointer)]
       end
     end
-    parent_dir = current_dir
 
-    target_dir_uuid = parent_dir[basename]
-    parent_dir.delete(basename)
-    parent_dir.store(File.basename(destpath), target_dir_uuid)
-    @table.store(hash_method.call(parent_dir.uuid), parent_dir)
-
-    return true
+    return current_dir
   end
 end
