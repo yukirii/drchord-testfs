@@ -76,5 +76,3 @@ Then /^: (\d+) 個のテストデータが存在する$/ do |arg1|
     check_file_content("#{i}.txt", "#{i.to_s*10}", true)
   end
 end
-
-
