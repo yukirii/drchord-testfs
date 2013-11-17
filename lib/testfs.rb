@@ -4,11 +4,8 @@ testfs_dir = File.expand_path(File.dirname(__FILE__))
 require File.expand_path(File.join(testfs_dir, '/inode.rb'))
 require File.expand_path(File.join(testfs_dir, '/dir_entry.rb'))
 require File.expand_path(File.join(testfs_dir, '/file_data.rb'))
-require 'uuidtools'
 require 'rbfuse'
 require 'zlib'
-require 'json'
-require 'kconv'
 require 'pp'
 
 class TestFS < RbFuse::FuseDir
@@ -370,37 +367,29 @@ class TestFS < RbFuse::FuseDir
   end
 
   def rename(path, destpath)
-    if directory?(path)
-      @table[to_dirkey(destpath)] = @table[to_dirkey(path)]
-      filename = File.basename(destpath.toutf8)
-      parent_dir = File.dirname(destpath)
-      files = JSON.load(get_dir(parent_dir)) | [filename]
-      @table[to_dirkey(File.dirname(destpath))] = JSON.dump(files)
+    basename = File.basename(path)
+    dirname = File.dirname(path)
 
-      tmp = {}
-      @table.each do |key, value|
-        if key =~ /^file:.*/
-          path_only = key[5..key.length]
-          new_key = "file:"
-        elsif key =~ /^dir:.*/
-          path_only = key[4..key.length]
-          new_key = "dir:"
+    root_inode = @table[hash_method.call("2")]
+    current_dir = @table[hash_method.call(root_inode.pointer)]
+
+    if dirname != '/'
+      splited_path = path.split("/").reject{|x| x == "" }
+      splited_path.each do |dir|
+        unless current_dir.has_key?(dir)
+          return true
         end
-
-        if path_only[0..path.length-1] == path
-          rest = path_only[path.length..path_only.length]
-          new_key += destpath + rest
-
-          tmp.store(new_key, value)
-          @table.reject!{|k, v| k == key }
-        end
+        current_inode = @table[hash_method.call(current_dir[dir])]
+        current_dir = @table[hash_method.call(current_inode.pointer)]
       end
-      @table.merge!(tmp)
-
-      rmdir(path)
-      return true
-    else
-      super(path, destpath)
     end
+    parent_dir = current_dir
+
+    target_dir_uuid = parent_dir[basename]
+    parent_dir.delete(basename)
+    parent_dir.store(File.basename(destpath), target_dir_uuid)
+    @table.store(hash_method.call(parent_dir.uuid), parent_dir)
+
+    return true
   end
 end
