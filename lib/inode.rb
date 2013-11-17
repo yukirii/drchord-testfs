@@ -13,6 +13,6 @@ class Inode
     @ctime = DateTime.now;
     @mtime = DateTime.now;
     @atime = DateTime.now;
-    @pointer = pointer;
+    @pointer = nil;
   end
 end
