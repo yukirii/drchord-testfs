@@ -6,7 +6,6 @@ require File.expand_path(File.join(testfs_dir, '/dir_entry.rb'))
 require File.expand_path(File.join(testfs_dir, '/file_data.rb'))
 require 'rbfuse'
 require 'zlib'
-require 'pp'
 
 class TestFS < RbFuse::FuseDir
   attr_reader :hash_method, :table
@@ -88,26 +87,8 @@ class TestFS < RbFuse::FuseDir
   end
 
   def size(path)
-    root_inode = @table[hash_method.call("2")]
-    current_dir = @table[hash_method.call(root_inode.pointer)]
-
-    if path != '/'
-      splited_path = path.split("/").reject{|x| x == "" }
-      target_dir_name = splited_path.pop
-      splited_path.each do |dir|
-        return 0 unless current_dir.has_key?(dir)
-        current_inode = @table[hash_method.call(current_dir[dir])]
-        current_dir = @table[hash_method.call(current_inode.pointer)]
-      end
-    end
-
-    if current_dir.has_key?(target_dir_name)
-      uuid = current_dir[target_dir_name]
-      inode = @table[hash_method.call(uuid)]
-      return inode.size
-    end
-
-    return 0
+    filedata = get_file(path)
+    return filedata.value.bytesize
   end
 
   def file?(path)
@@ -146,7 +127,7 @@ class TestFS < RbFuse::FuseDir
     end
 
     file_data.value = str
-    inode.size = file_data.value.bytesize
+    inode.size = str.bytesize
 
     @table.store(hash_method.call(inode.ino), inode)
     @table.store(hash_method.call(file_data.uuid), file_data)
@@ -246,7 +227,7 @@ class TestFS < RbFuse::FuseDir
     dir_entry = @table[hash_method.call(deldir_inode.pointer)]
     dir_entry.each do |entry, uuid|
       inode = @table[hash_method.call(uuid)]
-      data = @table[hash_method.call(inode.pointer)]
+
       remove_lower_dir(inode) if inode.type == :dir
 
       @table.delete(hash_method.call(uuid))
@@ -256,16 +237,14 @@ class TestFS < RbFuse::FuseDir
     @table.delete(hash_method.call(dir_entry.uuid))
   end
 
+
   def rename(path, destpath)
-    # get uuid & inode
     parent_entry = get_dir_entry(path)
     target_uuid = parent_entry[File.basename(path)]
 
-    # Delete from the parent directory
     parent_entry.delete(File.basename(path))
     @table.store(hash_method.call(parent_entry.uuid), parent_entry)
 
-    # Save to a new directory
     newparent_entry = get_dir_entry(destpath)
     newparent_entry.store(File.basename(destpath), target_uuid)
     @table.store(hash_method.call(newparent_entry.uuid), newparent_entry)
