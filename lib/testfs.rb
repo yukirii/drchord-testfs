@@ -25,20 +25,8 @@ class TestFS < RbFuse::FuseDir
   end
 
   def set_dir(path, dest_dir)
-    root_inode = @table[hash_method.call("2")]
-    current_dir = @table[hash_method.call(root_inode.pointer)]
-
-    if path != '/'
-      splited_path = path.split("/").reject{|x| x == "" }
-      dest_dir_name = splited_path.pop
-
-      splited_path.each do |dir|
-        return false unless current_dir.has_key?(dir)
-        current_inode = @table[hash_method.call(current_dir[dir])]
-        current_dir = @table[hash_method.call(current_inode.pointer)]
-      end
-    end
-
+    dest_dir_name = File.basename(path)
+    current_dir = get_dir_entry(path)
     if current_dir.has_key?(dest_dir_name)
       same_name_uuid = current_dir[dest_dir_name]
       same_name_inode = @table[hash_method.call(same_name_uuid)]
@@ -57,20 +45,7 @@ class TestFS < RbFuse::FuseDir
   end
 
   def dir_entries(path)
-    root_inode = @table[hash_method.call("2")]
-    current_dir = @table[hash_method.call(root_inode.pointer)]
-
-    if path != '/'
-      splited_path = path.split("/").reject{|x| x == "" }
-      splited_path.each do |dir|
-        unless current_dir.has_key?(dir)
-          return nil
-        end
-        current_inode = @table[hash_method.call(current_dir[dir])]
-        current_dir = @table[hash_method.call(current_inode.pointer)]
-      end
-    end
-
+    current_dir = get_dir_entry(path, false)
     return current_dir.keys
   end
 
@@ -144,7 +119,6 @@ class TestFS < RbFuse::FuseDir
     if current_dir.has_key?(filename)
       uuid = current_dir[filename]
       inode = @table[hash_method.call(uuid)]
-
       current_dir.delete(filename)
       @table.delete(hash_method.call(uuid))
       @table.delete(hash_method.call(inode.pointer))
@@ -227,9 +201,7 @@ class TestFS < RbFuse::FuseDir
     dir_entry = @table[hash_method.call(deldir_inode.pointer)]
     dir_entry.each do |entry, uuid|
       inode = @table[hash_method.call(uuid)]
-
       remove_lower_dir(inode) if inode.type == :dir
-
       @table.delete(hash_method.call(uuid))
       @table.delete(hash_method.call(inode.pointer))
     end
@@ -252,12 +224,12 @@ class TestFS < RbFuse::FuseDir
     return true
   end
 
-  def get_dir_entry(path)
-    dirname = File.dirname(path)
+  def get_dir_entry(path, split_path = true)
+    path = File.dirname(path) if split_path == true
     root_inode = @table[hash_method.call("2")]
     current_dir = @table[hash_method.call(root_inode.pointer)]
-    if dirname != '/'
-      splited_path = dirname.split("/").reject{|x| x == "" }
+    if path != '/'
+      splited_path = path.split("/").reject{|x| x == "" }
       splited_path.each do |dir|
         return nil unless current_dir.has_key?(dir)
         current_inode = @table[hash_method.call(current_dir[dir])]
