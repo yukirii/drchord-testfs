@@ -8,7 +8,7 @@ require 'rbfuse'
 require 'zlib'
 
 class TestFS < RbFuse::FuseDir
-  attr_reader :hash_method, :table
+  attr_reader :hash_method
   def initialize
     @hash_method = lambda {|key| Zlib.crc32(key) }
     @table = {}

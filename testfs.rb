@@ -9,23 +9,23 @@ rescue LoadError
   exit
 end
 
-require File.expand_path(File.join(testfs_dir, '/lib/testfs.rb'))
-require 'rbfuse'
-require 'json'
-
 if ARGV.count <= 0
   puts "Error: Mount point not specified."
   puts "Usage: ruby testfs.rb -d mnt"
   exit
 end
 
+require File.expand_path(File.join(testfs_dir, '/lib/testfs.rb'))
+require 'rbfuse'
+
 STDOUT.sync = true
 if ARGV.count >= 2 && ARGV.shift == "-d"
   RbFuse.debug = true
   STDERR.sync = true
 end
+
 RbFuse.set_root(TestFS.new)
-RbFuse.mount_under(ARGV.shift)
+RbFuse.mount_under(ARGV.shift, "volname=TestFS")
 begin
   puts "TestFS Start"
   RbFuse.run
