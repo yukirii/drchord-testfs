@@ -138,7 +138,7 @@ class TestFS < RbFuse::FuseDir
 
   # ファイルサイズを取得する
   # @param [String] path 対象ファイルのパス
-  # @param [Fixnum] ファイルサイズ
+  # @return [Fixnum] ファイルサイズ
   def size(path)
     filedata = get_file(path)
     return filedata.value.bytesize
