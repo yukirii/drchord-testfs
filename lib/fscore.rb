@@ -2,9 +2,9 @@
 
 testfs_dir = File.expand_path(File.dirname(__FILE__))
 require File.expand_path(File.join(testfs_dir, '/utils.rb'))
-require File.expand_path(File.join(testfs_dir, '/inode.rb'))
-require File.expand_path(File.join(testfs_dir, '/dir_entry.rb'))
-require File.expand_path(File.join(testfs_dir, '/file_data.rb'))
+require File.expand_path(File.join(testfs_dir, '/data_structure/inode.rb'))
+require File.expand_path(File.join(testfs_dir, '/data_structure/dir_entry.rb'))
+require File.expand_path(File.join(testfs_dir, '/data_structure/file_data.rb'))
 require 'rbfuse'
 require 'zlib'
 
