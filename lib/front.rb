@@ -17,8 +17,11 @@ module TestFS
         STDERR.sync = true
       end
 
+      config = {:fuse_opts => []}
+      fuse_opts = config[:fuse_opts]
+
       RbFuse.set_root(TestFS::FSCore.new)
-      RbFuse.mount_under(mnt_point)
+      RbFuse.mount_under(mnt_point, *fuse_opts)
       begin
         puts "TestFS Start"
         RbFuse.run

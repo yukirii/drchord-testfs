@@ -1,6 +1,7 @@
 #encoding:utf-8
 
 testfs_dir = File.expand_path(File.dirname(__FILE__))
+require File.expand_path(File.join(testfs_dir, '/utils.rb'))
 require File.expand_path(File.join(testfs_dir, '/inode.rb'))
 require File.expand_path(File.join(testfs_dir, '/dir_entry.rb'))
 require File.expand_path(File.join(testfs_dir, '/file_data.rb'))
@@ -11,7 +12,8 @@ module TestFS
   class FSCore < RbFuse::FuseDir
     attr_reader :hash_method
     def initialize
-      @hash_method = lambda {|key| Zlib.crc32(key) }
+      config = {:hash => :crc32}
+      @hash_method = Utils.get_hash_method(config[:hash])
       @table = {}
       @open_entries = {}
       create_root_dir
