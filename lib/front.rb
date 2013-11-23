@@ -2,26 +2,23 @@
 
 testfs_dir = File.expand_path(File.dirname(__FILE__))
 require File.expand_path(File.join(testfs_dir, '/fscore.rb'))
-require 'rbfuse'
+require 'yaml'
 require 'optparse'
+require 'rbfuse'
 
 module TestFS
   class Front
+    def initialize
+      @config = load_config
+      @option = option_parser(default_options)
+      @fuse_opts = @config["fuse_opts"].nil? ? [] : @config[:fuse_opts]
+      @mnt_point = ARGV[0]
+      output_settings
+    end
+
     def run
-      option = option_parser(default_options)
-      mnt_point = ARGV[0]
-
-      STDOUT.sync = true
-      if option[:debug] == true
-        RbFuse.debug = true
-        STDERR.sync = true
-      end
-
-      config = {:fuse_opts => []}
-      fuse_opts = config[:fuse_opts]
-
-      RbFuse.set_root(TestFS::FSCore.new)
-      RbFuse.mount_under(mnt_point, *fuse_opts)
+      RbFuse.set_root(TestFS::FSCore.new(@config))
+      RbFuse.mount_under(@mnt_point, *@fuse_opts)
       begin
         puts "TestFS Start"
         RbFuse.run
@@ -31,6 +28,22 @@ module TestFS
     end
 
     private
+    def output_settings
+      STDOUT.sync = true
+      if @option[:debug] == true
+        RbFuse.debug = true
+        STDERR.sync = true
+      end
+    end
+
+    def load_config
+      config_path = File.join(File.expand_path(File.dirname(__FILE__)), '../config/config.yml')
+      if File.exist?(config_path)
+        return YAML.load_file(config_path)
+      end
+      return {"hash_func" => :crc32}
+    end
+
     def default_options
       return {:debug => false, :p2p => nil}
     end

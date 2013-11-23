@@ -11,9 +11,8 @@ require 'zlib'
 module TestFS
   class FSCore < RbFuse::FuseDir
     attr_reader :hash_method
-    def initialize
-      config = {:hash => :crc32}
-      @hash_method = Utils.get_hash_method(config[:hash])
+    def initialize(config)
+      @hash_method = Utils.get_hash_method(config["hash_func"])
       @table = {}
       @open_entries = {}
       create_root_dir
