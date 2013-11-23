@@ -2,6 +2,7 @@
 
 testfs_dir = File.expand_path(File.dirname(__FILE__))
 require File.expand_path(File.join(testfs_dir, '/utils.rb'))
+require File.expand_path(File.join(testfs_dir, '/hash_table.rb'))
 require File.expand_path(File.join(testfs_dir, '/data_structure/inode.rb'))
 require File.expand_path(File.join(testfs_dir, '/data_structure/dir_entry.rb'))
 require File.expand_path(File.join(testfs_dir, '/data_structure/file_data.rb'))
@@ -11,9 +12,13 @@ require 'zlib'
 module TestFS
   class FSCore < RbFuse::FuseDir
     attr_reader :hash_method
-    def initialize(config)
+    def initialize(config, option)
+      if option[:p2p].nil?
+        @table = HashTable.new(LocalHashTable.new)
+      else
+        @table = HashTable.new(DistributedHashTable.new(option[:p2p]))
+      end
       @hash_method = Utils.get_hash_method(config["hash_func"])
-      @table = {}
       @open_entries = {}
       create_root_dir
     end
@@ -114,20 +119,20 @@ module TestFS
     # @param [String] key Value に対応付けるキー
     # @param [Object] value Key に対応付けられたオブジェクト
     def store_hash_table(key, value)
-      @table.store(hash_method.call(key), value)
+      @table.store(key, value)
     end
 
     # ハッシュテーブルからオブジェクトを取得する
     # @param [String] key Value に対応付けられたキー
     # @return [Object] Key に対応付けられたオブジェクト
     def get_hash_table(key)
-      return @table[hash_method.call(key)]
+      return @table.get(key)
     end
 
     # ハッシュテーブルからオブジェクトを削除する
     # @param [String] key Value に対応付けられたキー
     def delete_hash_table(key)
-      @table.delete(hash_method.call(key))
+      @table.delete(key)
     end
 
     # ディレクトリ内のエントリ一覧を返す

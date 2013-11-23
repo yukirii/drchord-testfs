@@ -17,7 +17,7 @@ module TestFS
     end
 
     def run
-      RbFuse.set_root(TestFS::FSCore.new(@config))
+      RbFuse.set_root(TestFS::FSCore.new(@config, @option))
       RbFuse.mount_under(@mnt_point, *@fuse_opts)
       begin
         puts "TestFS Start"
