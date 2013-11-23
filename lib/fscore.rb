@@ -6,6 +6,7 @@ require File.expand_path(File.join(testfs_dir, '/hash_table.rb'))
 require File.expand_path(File.join(testfs_dir, '/data_structure/inode.rb'))
 require File.expand_path(File.join(testfs_dir, '/data_structure/dir_entry.rb'))
 require File.expand_path(File.join(testfs_dir, '/data_structure/file_data.rb'))
+require File.expand_path(File.join(testfs_dir, '/cache/inode_cache_manager.rb'))
 require 'rbfuse'
 require 'zlib'
 
@@ -19,8 +20,8 @@ module TestFS
         @table = HashTable.new(DistributedHashTable.new(option[:p2p]))
       end
 
-      @inode_cache_size = 100
-      @inode_cache = {}
+      @inode_cache = InodeCacheManager.new(100)
+
       @open_entries = {}
 
       create_root_dir
@@ -88,12 +89,12 @@ module TestFS
     def rmdir(path)
       basename = File.basename(path)
       current_dir = get_dir_entry(path)
-      #deldir_inode = get_hash_table(current_dir[basename])
       deldir_inode = get_inode(current_dir[basename])
       remove_lower_dir(deldir_inode)
       current_dir.delete(basename)
       store_hash_table(current_dir.uuid, current_dir)
-      delete_inode_cache(deldir_inode.ino)
+
+      @inode_cache.delete(deldir_inode.ino)
       return true
     end
 
@@ -156,7 +157,6 @@ module TestFS
       current_dir = get_dir_entry(path)
       if current_dir.has_key?(filename)
         uuid = current_dir[filename]
-        #inode = get_hash_table(uuid)
         inode = get_inode(uuid)
         return inode.size
       end
@@ -172,7 +172,6 @@ module TestFS
       current_dir = get_dir_entry(path)
       if current_dir.has_key?(dirname)
         uuid = current_dir[dirname]
-        #inode = get_hash_table(uuid)
         inode = get_inode(uuid)
         return true if inode.type == type
       end
@@ -185,14 +184,12 @@ module TestFS
     # @return [DirEntry] ディレクトリエントリ
     def get_dir_entry(path, split_path = true)
       path = File.dirname(path) if split_path == true
-      #root_inode = get_hash_table("2")
       root_inode = get_inode("2")
       current_dir = get_hash_table(root_inode.pointer)
       if path != '/'
         splited_path = path.split("/").reject{|x| x == "" }
         splited_path.each do |dir|
           return nil unless current_dir.has_key?(dir)
-          #current_inode = get_hash_table(current_dir[dir])
           current_inode = get_inode(current_dir[dir])
           current_dir = get_hash_table(current_inode.pointer)
         end
@@ -205,16 +202,17 @@ module TestFS
     def remove_lower_dir(deldir_inode)
       dir_entry = get_hash_table(deldir_inode.pointer)
       dir_entry.each do |entry, uuid|
-        #inode = get_hash_table(uuid)
         inode = get_inode(uuid)
         remove_lower_dir(inode) if inode.type == :dir
         delete_hash_table(uuid)
         delete_hash_table(inode.pointer)
-        delete_inode_cache(uuid)
+
+        @inode_cache.delete(uuid)
       end
       delete_hash_table(deldir_inode.ino)
       delete_hash_table(dir_entry.uuid)
-      delete_inode_cache(deldir_inode.ino)
+
+      @inode_cache.delete(deldir_inode.ino)
     end
 
     # ルートディレクトリの inode と ディレクトリエントリを作成する
@@ -225,7 +223,7 @@ module TestFS
       store_hash_table(inode.ino, inode)
       store_hash_table(dir_entry.uuid, dir_entry)
 
-      store_inode_cache(inode)
+      @inode_cache.store(inode)
     end
 
     # ディレクトリの inode と ディレクトリエントリを作成する
@@ -237,7 +235,6 @@ module TestFS
       current_dir = get_dir_entry(path)
       if current_dir.has_key?(dest_dir_name)
         samename_uuid = current_dir[dest_dir_name]
-        #samename_inode = get_hash_table(samename_uuid)
         samename_inode = get_inode(samename_uuid)
 
         return false if samename_inode.type == :dir
@@ -251,7 +248,7 @@ module TestFS
       current_dir.store(dest_dir_name, dest_inode.ino)
       store_hash_table(current_dir.uuid, current_dir)
 
-      store_inode_cache(dest_inode)
+      @inode_cache.store(dest_inode)
       return true
     end
 
@@ -263,7 +260,6 @@ module TestFS
       current_dir = get_dir_entry(path)
       if current_dir.has_key?(filename)
         uuid = current_dir[filename]
-        #inode = get_hash_table(uuid)
         inode = get_inode(uuid)
         filedata = get_hash_table(inode.pointer)
         return filedata
@@ -279,7 +275,6 @@ module TestFS
       current_dir = get_dir_entry(path)
 
       if current_dir.has_key?(filename)
-        #inode = get_hash_table(current_dir[filename])
         inode = get_inode(current_dir[filename])
         file_data = get_hash_table(inode.pointer)
       else
@@ -297,7 +292,7 @@ module TestFS
       current_dir.store(filename, inode.ino)
       store_hash_table(current_dir.uuid, current_dir)
 
-      store_inode_cache(inode)
+      @inode_cache.store(inode)
       return true
     end
 
@@ -309,7 +304,6 @@ module TestFS
       current_dir = get_dir_entry(path)
       if current_dir.has_key?(filename)
         uuid = current_dir[filename]
-        #inode = get_hash_table(uuid)
         inode = get_inode(uuid)
 
         current_dir.delete(filename)
@@ -317,29 +311,19 @@ module TestFS
 
         delete_hash_table(uuid)
         delete_hash_table(inode.pointer)
-        delete_inode_cache(uuid)
+
+        @inode_cache.delete(uuid)
         return true
       end
       return false
     end
 
-    def store_inode_cache(inode)
-      if @inode_cache.count == @inode_cache_size
-        @inode_cache.shift
-      end
-      @inode_cache.store(inode.ino, inode)
-    end
-
-    def get_inode(ino)
-      if @inode_cache.has_key?(ino)
-        return @inode_cache[ino]
+    def get_inode(uuid)
+      if @inode_cache.has_cache?(uuid)
+        return @inode_cache.get(uuid)
       else
-        return get_hash_table(ino)
+        get_hash_table(uuid)
       end
-    end
-
-    def delete_inode_cache(ino)
-      @inode_cache.delete(ino)
     end
   end
 end
