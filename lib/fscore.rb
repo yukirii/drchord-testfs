@@ -7,6 +7,7 @@ require File.expand_path(File.join(testfs_dir, '/data_structure/inode.rb'))
 require File.expand_path(File.join(testfs_dir, '/data_structure/dir_entry.rb'))
 require File.expand_path(File.join(testfs_dir, '/data_structure/file_data.rb'))
 require File.expand_path(File.join(testfs_dir, '/cache/inode_cache_manager.rb'))
+require File.expand_path(File.join(testfs_dir, '/cache/dir_cache_manager.rb'))
 require 'rbfuse'
 require 'zlib'
 
@@ -21,6 +22,7 @@ module TestFS
       end
 
       @inode_cache = InodeCacheManager.new(100)
+      @dir_cache = DirCacheManager.new(100)
 
       @open_entries = {}
 
@@ -90,10 +92,12 @@ module TestFS
       basename = File.basename(path)
       current_dir = get_dir_entry(path)
       deldir_inode = get_inode(current_dir[basename])
+
       remove_lower_dir(deldir_inode)
       current_dir.delete(basename)
       store_hash_table(current_dir.uuid, current_dir)
 
+      @dir_cache.delete(deldir_inode.pointer)
       @inode_cache.delete(deldir_inode.ino)
       return true
     end
@@ -104,10 +108,12 @@ module TestFS
 
       parent_entry.delete(File.basename(path))
       store_hash_table(parent_entry.uuid, parent_entry)
+      @dir_cache.store(parent_entry)
 
       newparent_entry = get_dir_entry(destpath)
       newparent_entry.store(File.basename(destpath), target_uuid)
       store_hash_table(newparent_entry.uuid, newparent_entry)
+      @dir_cache.store(newparent_entry)
 
       return true
     end
@@ -185,13 +191,15 @@ module TestFS
     def get_dir_entry(path, split_path = true)
       path = File.dirname(path) if split_path == true
       root_inode = get_inode("2")
-      current_dir = get_hash_table(root_inode.pointer)
+      #current_dir = get_hash_table(root_inode.pointer)
+      current_dir = get_dir(root_inode.pointer)
       if path != '/'
         splited_path = path.split("/").reject{|x| x == "" }
         splited_path.each do |dir|
           return nil unless current_dir.has_key?(dir)
           current_inode = get_inode(current_dir[dir])
-          current_dir = get_hash_table(current_inode.pointer)
+          #current_dir = get_hash_table(current_inode.pointer)
+          current_dir = get_dir(current_inode.pointer)
         end
       end
       return current_dir
@@ -204,15 +212,19 @@ module TestFS
       dir_entry.each do |entry, uuid|
         inode = get_inode(uuid)
         remove_lower_dir(inode) if inode.type == :dir
+
         delete_hash_table(uuid)
         delete_hash_table(inode.pointer)
 
         @inode_cache.delete(uuid)
+        @dir_cache.delete(inode.pointer)
       end
+
       delete_hash_table(deldir_inode.ino)
       delete_hash_table(dir_entry.uuid)
 
       @inode_cache.delete(deldir_inode.ino)
+      @dir_cache.delete(dir_entry.uuid)
     end
 
     # ルートディレクトリの inode と ディレクトリエントリを作成する
@@ -220,10 +232,12 @@ module TestFS
       inode = Inode.new(:dir, "2")
       dir_entry = DirEntry.new
       inode.pointer = dir_entry.uuid
+
       store_hash_table(inode.ino, inode)
       store_hash_table(dir_entry.uuid, dir_entry)
 
       @inode_cache.store(inode)
+      @dir_cache.store(dir_entry)
     end
 
     # ディレクトリの inode と ディレクトリエントリを作成する
@@ -242,6 +256,7 @@ module TestFS
 
       dest_inode = Inode.new(:dir)
       dest_inode.pointer = dest_dir.uuid
+
       store_hash_table(dest_inode.ino, dest_inode)
       store_hash_table(dest_dir.uuid, dest_dir)
 
@@ -249,6 +264,8 @@ module TestFS
       store_hash_table(current_dir.uuid, current_dir)
 
       @inode_cache.store(dest_inode)
+      @dir_cache.store(dest_dir)
+      @dir_cache.store(current_dir)
       return true
     end
 
@@ -293,6 +310,7 @@ module TestFS
       store_hash_table(current_dir.uuid, current_dir)
 
       @inode_cache.store(inode)
+      @dir_cache.store(current_dir)
       return true
     end
 
@@ -313,6 +331,7 @@ module TestFS
         delete_hash_table(inode.pointer)
 
         @inode_cache.delete(uuid)
+        @dir_cache.delete(inode.pointer)
         return true
       end
       return false
@@ -321,6 +340,14 @@ module TestFS
     def get_inode(uuid)
       if @inode_cache.has_cache?(uuid)
         return @inode_cache.get(uuid)
+      else
+        get_hash_table(uuid)
+      end
+    end
+
+    def get_dir(uuid)
+      if @dir_cache.has_cache?(uuid)
+        return @dir_cache.get(uuid)
       else
         get_hash_table(uuid)
       end
