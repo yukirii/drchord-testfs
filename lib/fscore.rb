@@ -147,8 +147,14 @@ module TestFS
     # @param [String] path 対象ファイルのパス
     # @return [Fixnum] ファイルサイズ
     def size(path)
-      filedata = get_file(path)
-      return filedata.value.bytesize
+      filename = File.basename(path)
+      current_dir = get_dir_entry(path)
+      if current_dir.has_key?(filename)
+        uuid = current_dir[filename]
+        inode = get_hash_table(uuid)
+        return inode.size
+      end
+      return 0
     end
 
     # パスで指定したエントリが指定したタイプと同じか判定する
@@ -284,7 +290,10 @@ module TestFS
       if current_dir.has_key?(filename)
         uuid = current_dir[filename]
         inode = get_hash_table(uuid)
+
         current_dir.delete(filename)
+        store_hash_table(current_dir.uuid, current_dir)
+
         delete_hash_table(uuid)
         delete_hash_table(inode.pointer)
         return true

@@ -35,11 +35,11 @@ module TestFS
     end
 
     def store(key, value)
-      @dht.put(key, Marshal.dump(value))
+      @dht.put(key, value)
     end
 
     def get(key)
-      return Marshal.load(@dht.get(key))
+      return @dht.get(key)
     end
 
     def delete(key)
