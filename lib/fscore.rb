@@ -101,7 +101,7 @@ module TestFS
 
       newparent_entry = get_dir_entry(destpath)
       newparent_entry.store(File.basename(destpath), target_uuid)
-      store_hash_table(newparent_enrty.uuid, newparent_entry);
+      store_hash_table(newparent_entry.uuid, newparent_entry)
 
       return true
     end
