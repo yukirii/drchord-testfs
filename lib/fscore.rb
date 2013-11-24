@@ -67,14 +67,20 @@ module TestFS
     end
 
     def getattr(path)
-      if file?(path)
-        stat = RbFuse::Stat.file
-        stat.size = size(path)
-        return stat
-      elsif directory?(path)
-        return RbFuse::Stat.dir
-      else
-        return nil
+      filename = File.basename(path)
+      current_dir = get_dir_entry(path)
+      if current_dir.has_key?(filename)
+        uuid = current_dir[filename]
+        inode = get_inode(uuid)
+        if inode.type == :file
+          stat = RbFuse::Stat.file
+          stat.size = inode.size
+          return stat
+        elsif inode.type == :dir
+          return RbFuse::Stat.dir
+        else
+          return nil
+        end
       end
     end
 
@@ -118,12 +124,15 @@ module TestFS
       return true
     end
 
-    def file?(path)
-      check_type(path, :file)
-    end
-
     def directory?(path)
-      check_type(path, :dir)
+      dirname = File.basename(path)
+      current_dir = get_dir_entry(path)
+      if current_dir.has_key?(dirname)
+        uuid = current_dir[dirname]
+        inode = get_inode(uuid)
+        return true if inode.type == :dir
+      end
+      return false
     end
 
     private
@@ -155,35 +164,6 @@ module TestFS
       return current_dir.keys
     end
 
-    # ファイルサイズを取得する
-    # @param [String] path 対象ファイルのパス
-    # @return [Fixnum] ファイルサイズ
-    def size(path)
-      filename = File.basename(path)
-      current_dir = get_dir_entry(path)
-      if current_dir.has_key?(filename)
-        uuid = current_dir[filename]
-        inode = get_inode(uuid)
-        return inode.size
-      end
-      return 0
-    end
-
-    # パスで指定したエントリが指定したタイプと同じか判定する
-    # @param [String] path 対象のエントリを指すパス
-    # @param [Symbol] type ファイルまたはディレクトリを現すシンボル
-    # @return [boolean] 引数で指定した type と一致する場合 true, しない場合 false
-    def check_type(path, type)
-      dirname = File.basename(path)
-      current_dir = get_dir_entry(path)
-      if current_dir.has_key?(dirname)
-        uuid = current_dir[dirname]
-        inode = get_inode(uuid)
-        return true if inode.type == type
-      end
-      return false
-    end
-
     # ディレクトリエントリを取得する
     # @param [String] path 対象のディレクトリを指すパス
     # @param [boolean] split_path 引数で渡したパスを basename と dirname に分割する場合 true
@@ -191,14 +171,12 @@ module TestFS
     def get_dir_entry(path, split_path = true)
       path = File.dirname(path) if split_path == true
       root_inode = get_inode("2")
-      #current_dir = get_hash_table(root_inode.pointer)
       current_dir = get_dir(root_inode.pointer)
       if path != '/'
         splited_path = path.split("/").reject{|x| x == "" }
         splited_path.each do |dir|
           return nil unless current_dir.has_key?(dir)
           current_inode = get_inode(current_dir[dir])
-          #current_dir = get_hash_table(current_inode.pointer)
           current_dir = get_dir(current_inode.pointer)
         end
       end
@@ -341,7 +319,7 @@ module TestFS
       if @inode_cache.has_cache?(uuid)
         return @inode_cache.get(uuid)
       else
-        get_hash_table(uuid)
+        return get_hash_table(uuid)
       end
     end
 
@@ -349,7 +327,7 @@ module TestFS
       if @dir_cache.has_cache?(uuid)
         return @dir_cache.get(uuid)
       else
-        get_hash_table(uuid)
+        return get_hash_table(uuid)
       end
     end
   end
