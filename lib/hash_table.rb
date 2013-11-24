@@ -35,11 +35,15 @@ module TestFS
     end
 
     def store(key, value)
-      @dht.put(key, value)
+      candidates_list = @dht.lookup_roots(key)
+      root = candidates_list.first
+      return DRbObject::new_with_uri(root).put(key, value)
     end
 
     def get(key)
-      return @dht.get(key)
+      candidates_list = @dht.lookup_roots(key)
+      root = candidates_list.first
+      return DRbObject::new_with_uri(root).get(key)
     end
 
     def delete(key)
