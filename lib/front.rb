@@ -11,7 +11,7 @@ module TestFS
     def initialize
       @config = load_config
       @option = option_parser(default_options)
-      @fuse_opts = @config["fuse_opts"].nil? ? [] : @config[:fuse_opts]
+      @fuse_opts = @config["fuse_opts"].nil? ? default_fuse_opts : @config["fuse_opts"]
       @mnt_point = ARGV[0]
       output_settings
     end
@@ -41,7 +41,15 @@ module TestFS
       if File.exist?(config_path)
         return YAML.load_file(config_path)
       end
-      return {"hash_func" => :crc32}
+      return default_config
+    end
+
+    def default_fuse_opts
+      return ["noappledouble", "noapplexattr"]
+    end
+
+    def default_config
+      return {"hash_func" => :crc32, "fuse_opts" => default_fuse_opts}
     end
 
     def default_options
