@@ -23,13 +23,31 @@ module TestFS
     end
   end
 
-  class HashTableFormatter
+  class HashTableInterface
     def store(key, value); end
     def get(key); end
     def delete(key); end
   end
 
-  class DistributedHashTable < HashTableFormatter
+  class LocalHashTable < HashTableInterface
+    def initialize
+      @table = {}
+    end
+
+    def store(key, value)
+      @table.store(key, value)
+    end
+
+    def get(key)
+      return @table[key]
+    end
+
+    def delete(key)
+      @table.delete(key)
+    end
+  end
+
+  class DistributedHashTable < HashTableInterface
     def initialize(uri)
       @dht = DRbObject::new_with_uri(uri + "?dhash")
     end
@@ -48,24 +66,6 @@ module TestFS
 
     def delete(key)
       @dht.delete(key)
-    end
-  end
-
-  class LocalHashTable < HashTableFormatter
-    def initialize
-      @table = {}
-    end
-
-    def store(key, value)
-      @table.store(key, value)
-    end
-
-    def get(key)
-      return @table[key]
-    end
-
-    def delete(key)
-      @table.delete(key)
     end
   end
 end
