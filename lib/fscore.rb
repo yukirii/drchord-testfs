@@ -1,23 +1,21 @@
 #encoding:utf-8
 
 testfs_dir = File.expand_path(File.dirname(__FILE__))
-require File.expand_path(File.join(testfs_dir, '/utils.rb'))
-require File.expand_path(File.join(testfs_dir, '/hash_table.rb'))
 require File.expand_path(File.join(testfs_dir, '/data_structure/inode.rb'))
 require File.expand_path(File.join(testfs_dir, '/data_structure/dir_entry.rb'))
 require File.expand_path(File.join(testfs_dir, '/data_structure/file_data.rb'))
 require File.expand_path(File.join(testfs_dir, '/cache/inode_cache_manager.rb'))
 require File.expand_path(File.join(testfs_dir, '/cache/dir_cache_manager.rb'))
 require 'rbfuse'
-require 'zlib'
 
 module TestFS
   class FSCore < RbFuse::FuseDir
-    attr_reader :hash_method
     def initialize(config, option)
       if option[:p2p].nil?
+        require File.expand_path(File.join(File.expand_path(File.dirname(__FILE__)), '/hash_table/local_hash.rb'))
         @table = HashTable.new(LocalHashTable.new)
       else
+        require File.expand_path(File.join(File.expand_path(File.dirname(__FILE__)), '/hash_table/distributed_hash.rb'))
         @table = HashTable.new(DistributedHashTable.new(option[:p2p]))
       end
 
