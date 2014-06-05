@@ -3,3 +3,4 @@ hash_func: :crc32
 fuse_opts:
   - noappledouble
   - noapplexattr
+  - volname=TestFS (ruby)
